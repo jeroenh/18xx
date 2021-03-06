@@ -846,6 +846,8 @@ module Engine
           @stock_market.move_down(corporation)
         when :left_block
           @stock_market.move_left(corporation)
+        when :down_block_pres
+          stock_market.move_down(corporation) if was_president
         when :left_block_pres
           stock_market.move_left(corporation) if was_president
         when :none
@@ -1211,7 +1213,7 @@ module Engine
         return true if special
 
         # correct label?
-        return false if from.label != to.label
+        return false unless upgrades_to_correct_label?(from, to)
 
         # honors existing town/city counts?
         # - allow labelled cities to upgrade regardless of count; they're probably
@@ -1224,6 +1226,10 @@ module Engine
         return false if (from.color == :white) && from.label.to_s == 'OO' && from.cities.size != to.cities.size
 
         true
+      end
+
+      def upgrades_to_correct_label?(from, to)
+        from.label == to.label
       end
 
       def legal_tile_rotation?(_entity, _hex, _tile)

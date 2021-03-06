@@ -490,6 +490,7 @@ module Engine
             sym: 'ATSF',
             name: 'Santa Fe',
             logo: '1870/ATSF',
+            simple_logo: '1870/ATSF.alt',
             tokens: [0, 40, 100],
             abilities: [{ type: 'assign_hexes', hexes: ['N1'], count: 1 }],
             coordinates: 'B9',
@@ -502,6 +503,7 @@ module Engine
             sym: 'SSW',
             name: 'Cotton',
             logo: '1870/SSW',
+            simple_logo: '1870/SSW.alt',
             tokens: [0, 40],
             abilities: [{ type: 'assign_hexes', hexes: ['J3'], count: 1 }],
             coordinates: 'H17',
@@ -513,6 +515,7 @@ module Engine
             sym: 'SP',
             name: 'Southern Pacific',
             logo: '1870/SP',
+            simple_logo: '1870/SP.alt',
             tokens: [0, 40, 100],
             abilities: [{ type: 'assign_hexes', hexes: ['N17'], count: 1 }],
             coordinates: 'N1',
@@ -524,6 +527,7 @@ module Engine
             sym: 'SLSF',
             name: 'Frisco',
             logo: '1870/SLSF',
+            simple_logo: '1870/SLSF.alt',
             tokens: [0, 40, 100],
             abilities: [{ type: 'assign_hexes', hexes: ['M22'], count: 1 }],
             coordinates: 'E12',
@@ -535,6 +539,7 @@ module Engine
             sym: 'MP',
             name: 'Missouri Pacific',
             logo: '1870/MP',
+            simple_logo: '1870/MP.alt',
             tokens: [0, 40, 100],
             abilities: [{ type: 'assign_hexes', hexes: ['J5'], count: 1 }],
             coordinates: 'C18',
@@ -546,6 +551,7 @@ module Engine
             sym: 'MKT',
             name: 'Katy',
             logo: '1870/MKT',
+            simple_logo: '1870/MKT.alt',
             tokens: [0, 40, 100],
             abilities: [{ type: 'assign_hexes', hexes: ['N1'], count: 1 }],
             coordinates: 'B11',
@@ -557,6 +563,7 @@ module Engine
             sym: 'IC',
             name: 'Illinois Central',
             logo: '1870/IC',
+            simple_logo: '1870/IC.alt',
             tokens: [0, 40],
             abilities: [{ type: 'assign_hexes', hexes: ['A22'], count: 1 }],
             coordinates: 'K16',
@@ -568,6 +575,7 @@ module Engine
             sym: 'GMO',
             name: 'Gulf Mobile Ohio',
             logo: '1870/GMO',
+            simple_logo: '1870/GMO.alt',
             tokens: [0, 40],
             abilities: [{ type: 'assign_hexes', hexes: ['C18'], count: 1 }],
             coordinates: 'M20',
@@ -580,6 +588,7 @@ module Engine
             sym: 'FW',
             name: 'Fortsworth',
             logo: '1870/FW',
+            simple_logo: '1870/FW.alt',
             tokens: [0, 40],
             abilities: [{ type: 'assign_hexes', hexes: ['A2'], count: 1 }],
             coordinates: 'J3',
@@ -592,6 +601,7 @@ module Engine
             sym: 'TP',
             name: 'Texas Pacific',
             logo: '1870/TP',
+            simple_logo: '1870/TP.alt',
             tokens: [0, 40],
             abilities: [{ type: 'assign_hexes', hexes: ['N17'], count: 1 }],
             coordinates: 'J5',
@@ -798,6 +808,10 @@ module Engine
 
         def operating_round(round_num)
           G1870::Round::Operating.new(self, [
+            G1870::Step::ConnectionToken,
+            G1870::Step::ConnectionRoute,
+            G1870::Step::ConnectionDividend,
+            G1870::Step::CheckConnection,
             Engine::Step::Bankrupt,
             Engine::Step::Exchange,
             G1870::Step::BuyCompany,
@@ -810,6 +824,8 @@ module Engine
             Engine::Step::DiscardTrain,
             Engine::Step::BuyTrain,
             [G1870::Step::BuyCompany, blocks: true],
+            G1870::Step::PriceProtection,
+            G1870::Step::CheckConnection,
           ], round_num: round_num)
         end
 
@@ -908,6 +924,15 @@ module Engine
           super
         end
 
+        def home_hex(corporation)
+          corporation.tokens.first.city&.hex
+        end
+
+        def destination_hex(corporation)
+          ability = corporation.abilities.first
+          hexes.find { |h| h.name == ability.hexes.first } if ability
+        end
+
         def revenue_for(route, stops)
           revenue = super
 
@@ -918,7 +943,20 @@ module Engine
 
           revenue += (route.corporation.assigned?('GSC') ? 20 : 10) if stops.any? { |stop| stop.hex.assigned?('GSC') }
 
+          revenue += destination_revenue(route, stops)
+
           revenue
+        end
+
+        def destination_revenue(route, stops)
+          return 0 if stops.size < 2
+          return 0 unless (destination = destination_hex(route.corporation))
+          return 0 if destination.assigned?(route.corporation)
+
+          destination_stop = stops.values_at(0, -1).find { |s| s.hex == destination }
+          return 0 unless destination_stop
+
+          destination_stop.route_revenue(route.phase, route.train)
         end
 
         def sell_shares_and_change_price(bundle, _allow_president_change: true, _swap: nil)
@@ -942,11 +980,30 @@ module Engine
           return false if to.name == '171K' && from.hex.name != 'B11'
           return false if to.name == '171L' && from.hex.name != 'C18'
 
-          super(from, to, to.color != :brown)
+          super
+        end
+
+        def upgrades_to_correct_label?(from, to)
+          return true if to.color != :brown
+
+          super
         end
 
         def border_impassable?(border)
           border.type == :water
+        end
+
+        def check_other(route)
+          return unless (destination = @round.connection_runs[route.corporation])
+
+          home = home_hex(route.corporation)
+          return if route.routes.any? do |r|
+            next if r.visited_stops.size < 2
+
+            (r.visited_stops.values_at(0, -1).map(&:hex) - [home, destination]).none?
+          end
+
+          raise GameError, 'At least one train has to run from the home station to the destination'
         end
       end
     end
