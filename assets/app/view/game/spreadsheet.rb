@@ -24,7 +24,7 @@ module View
         @spreadsheet_sort_order = Lib::Storage['spreadsheet_sort_order']
         @delta_value = Lib::Storage['spreadsheet_delta_value']
         @hide_not_floated = Lib::Storage['spreadsheet_hide_not_floated']
-        @hide_connection_runs = !@game.respond_to?(:connection_runs) || @game.connection_runs.none?
+        @hide_connection_runs = !@game.respond_to?(:connection_run_store) || @game.connection_run_store.none?
 
         h('div#spreadsheet', {
             style: {
@@ -128,13 +128,20 @@ module View
       def render_connection_history(corporation)
          if @hide_connection_runs
            []
-         elsif @game.connection_runs[corporation]
-           round = @game.or_description_short(*@game.connection_runs[corporation][:turn])
-           children << h(:td, round)
-           children << h(:td, [render_dividend(round, @game.connection_runs[corporation][:info], corporation)])
+         elsif @game.connection_run_store[corporation]
+           dividend = @game.connection_run_store[corporation]['info'].dividend
+           revenue = @game.connection_run_store[corporation]['info'].revenue
+           @game.log << "-- rendering connection_run_store #{@game.connection_run_store}  --"
+           revenue_text, alpha =
+             case (dividend.is_a?(Engine::Action::Dividend) ? dividend.kind : 'withhold')
+             when 'withhold'
+               ["[#revenue}]", '0.5']
+             else
+               [revenue.to_s, '1.0']
+             end
          else
-           children << h(:td, '')
-           children << h(:td, '')
+           h(:td, '')
+           h(:td, '')
          end
        end
 
