@@ -9,6 +9,7 @@ module Engine
     module G1870
       class Game < Game::Base
         include_meta(G1870::Meta)
+        attr_accessor :connection_run_store
 
         register_colors(black: '#37383a',
                         orange: '#f48221',
@@ -798,6 +799,7 @@ module Engine
           'SCC' => '/icons/1870/SCC.svg',
         }.freeze
 
+        
         def stock_round
           Engine::Round::Stock.new(self, [
             Engine::Step::DiscardTrain,
@@ -840,7 +842,7 @@ module Engine
 
         def setup
           river_company.max_price = river_company.value
-
+          @connection_run_store = {}
           @corporations.each do |corporation|
             ability = abilities(corporation, :assign_hexes)
             hex = hexes.find { |h| h.name == ability.hexes.first }

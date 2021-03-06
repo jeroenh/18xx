@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../../../step/dividend'
+require_relative '../../../operating_info'
 require_relative 'connection'
 require_relative 'connection_token'
 require_relative 'connection_route'
@@ -34,6 +35,11 @@ module Engine
             @round.routes = []
 
             log_run_payout(entity, kind, revenue, action, payout)
+            @game.connection_run_store.store(entity,
+               { "turn" => [@game.turn, @round.round_num],
+                 "info" => OperatingInfo.new(routes,action,revenue)
+               }
+             )
 
             @game.bank.spend(payout[:corporation], entity) if payout[:corporation].positive?
 
