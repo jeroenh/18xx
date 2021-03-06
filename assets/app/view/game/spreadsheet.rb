@@ -24,6 +24,7 @@ module View
         @spreadsheet_sort_order = Lib::Storage['spreadsheet_sort_order']
         @delta_value = Lib::Storage['spreadsheet_delta_value']
         @hide_not_floated = Lib::Storage['spreadsheet_hide_not_floated']
+        @hide_connection_runs = !@game.respond_to?(:connection_runs) || @game.connection_runs.none?
 
         h('div#spreadsheet', {
             style: {
@@ -87,6 +88,13 @@ module View
       end
 
       def render_history_titles(corporations)
+        conn = if @hide_connection_runs
+          []
+        else
+          [h(:th, ''), h(:th, { attrs: { colSpan: 2 } }, 'Conn')]
+        end
+
+        conn.concat(or_history(corporations).map { |turn, round| h(:th, @game.or_description_short(turn, round)) })
         or_history(corporations).map do |turn, round|
           h(:th, render_sort_link(@game.or_description_short(turn, round), [turn, round]))
         end
@@ -116,6 +124,19 @@ module View
           ])
         end.compact.reverse
       end
+      
+      def render_connection_history(corporation)
+         if @hide_connection_runs
+           []
+         elsif @game.connection_runs[corporation]
+           round = @game.or_description_short(*@game.connection_runs[corporation][:turn])
+           children << h(:td, round)
+           children << h(:td, [render_dividend(round, @game.connection_runs[corporation][:info], corporation)])
+         else
+           children << h(:td, '')
+           children << h(:td, '')
+         end
+       end
 
       def render_history(corporation)
         or_history(@game.all_corporations).map do |x|
@@ -416,6 +437,7 @@ module View
           *extra,
           render_companies(corporation),
           h(:th, name_props, corporation.name),
+          *render_connection_history(corporation),
           *render_history(corporation),
         ])
       end
