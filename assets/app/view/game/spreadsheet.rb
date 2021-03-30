@@ -156,14 +156,14 @@ module View
         return [h(:td)] unless @game.connection_run[corporation]
 
         turn, round, c_run = @game.connection_run[corporation]
-        revenue_text, alpha = c_run.dividend.kind == 'withhold' ? ["[#{c_run.revenue}]", 0.5] : [c_run.revenue.to_s, 1]
+        revenue_text, alpha = c_run.dividend.kind == 'withhold' ? ["[#{c_run.revenue}]", 0.5] : [c_run.revenue, 1]
         props = {
           style: {
             color: convert_hex_to_rgba(color_for(:font2), alpha),
           },
         }
         link_h = history_link(
-          revenue_text,
+          "#{@game.or_description_short(turn, round)}: #{revenue_text}",
           "Go to connection run of #{corporation.name} (in #{@game.or_description_short(turn, round)})",
           c_run.dividend.id - 1
         )
